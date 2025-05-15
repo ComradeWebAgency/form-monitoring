@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Тестирование мониторинга форм</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+            color: #333;
+        }
+        h1 {
+            color: #2c3e50;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 10px;
+        }
+        h2 {
+            color: #3498db;
+            margin-top: 30px;
+        }
+        .form-container {
+            background-color: #f9f9f9;
+            border: 1px solid #ddd;
+            padding: 20px;
+            margin-bottom: 30px;
+            border-radius: 5px;
+        }
+        .form-title {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .error-type {
+            background-color: #e74c3c;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 3px;
+            font-size: 14px;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+        }
+        input, textarea, select {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 20px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+        .button-spam {
+            background-color: #e74c3c;
+        }
+        .button-spam:hover {
+            background-color: #c0392b;
+        }
+        .button-timeout {
+            background-color: #f39c12;
+        }
+        .button-timeout:hover {
+            background-color: #d35400;
+        }
+        .button-server-error {
+            background-color: #9b59b6;
+        }
+        .button-server-error:hover {
+            background-color: #8e44ad;
+        }
+        .status-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background-color: #2c3e50;
+            color: white;
+            padding: 10px 20px;
+            display: flex;
+            justify-content: space-between;
+        }
+        .log-container {
+            background-color: #f1f1f1;
+            border: 1px solid #ddd;
+            padding: 10px;
+            margin-top: 20px;
+            max-height: 150px;
+            overflow-y: auto;
+            font-family: monospace;
+        }
+        .log-entry {
+            margin-bottom: 5px;
+            padding: 5px;
+            border-bottom: 1px solid #ddd;
+        }
+        .log-error {
+            color: #e74c3c;
+        }
+        .log-success {
+            color: #27ae60;
+        }
+        .control-panel {
+            background-color: #ecf0f1;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 5px;
+        }
+        .webhook-url {
+            font-family: monospace;
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Тестирование мониторинга отправки форм</h1>
+    
+    <div class="control-panel">
+        <h3>Панель управления</h3>
+        <label for="webhookUrl">URL вашего webhook:</label>
+        <input type="text" id="webhookUrl" class="webhook-url" value="https://webhook.site/ВСТАВЬТЕ-ВАШ-УНИКАЛЬНЫЙ-ID">
+        <p>Совет: Используйте <a href="https://webhook.site" target="_blank">webhook.site</a> для получения временного URL для тестирования</p>
+        <button id="initMonitor">Инициализировать мониторинг</button>
+        <div id="monitorStatus">Статус: Не активен</div>
+    </div>
+
+    <div class="form-container">
+        <div class="form-title">
+            <h2>Стандартная форма (Успешная отправка)</h2>
+            <span class="error-type">Успешный кейс</span>
+        </div>
+        <form id="successForm" class="contact-form">
+            <label for="name1">Имя:</label>
+            <input type="text" id="name1" name="name" required>
+            
+            <label for="email1">Email:</label>
+            <input type="email" id="email1" name="email" required>
+            
+            <label for="message1">Сообщение:</label>
+            <textarea id="message1" name="message" rows="4" required></textarea>
+            
+            <button type="submit">Отправить форму</button>
+        </form>
+    </div>
+
+    <div class="form-container">
+        <div class="form-title">
+            <h2>Форма с ошибкой валидации</h2>
+            <span class="error-type">Validation Error</span>
+        </div>
+        <form id="validationForm" class="registration-form">
+            <label for="username">Имя пользователя:</label>
+            <input type="text" id="username" name="username" pattern="[A-Za-z0-9]{5,}" title="Минимум 5 символов, только буквы и цифры" required>
+            
+            <label for="password">Пароль (минимум 8 символов):</label>
+            <input type="password" id="password" name="password" minlength="8" required>
+            
+            <label for="age">Возраст (18-100):</label>
+            <input type="number" id="age" name="age" min="18" max="100" required>
+            
+            <button type="submit">Зарегистрироваться</button>
+        </form>
+        <p>Попробуйте отправить форму с неверными данными, например, паролем короче 8 символов.</p>
+    </div>
+
+    <div class="form-container">
+        <div class="form-title">
+            <h2>Симуляция таймаута отправки</h2>
+            <span class="error-type">Timeout Error</span>
+        </div>
+        <form id="timeoutForm" class="feedback-form">
+            <label for="subject">Тема:</label>
+            <input type="text" id="subject" name="subject" required>
+            
+            <label for="feedback">Отзыв:</label>
+            <textarea id="feedback" name="feedback" rows="4" required></textarea>
+            
+            <button type="submit" class="button-timeout">Отправить (с таймаутом)</button>
+        </form>
+        <p>Эта форма симулирует таймаут при отправке.</p>
+    </div>
+
+    <div class="form-container">
+        <div class="form-title">
+            <h2>AJAX форма с ошибкой сервера</h2>
+            <span class="error-type">Server Error</span>
+        </div>
+        <form id="serverErrorForm" class="ajax-form">
+            <label for="product">Товар:</label>
+            <input type="text" id="product" name="product" required>
+            
+            <label for="quantity">Количество:</label>
+            <input type="number" id="quantity" name="quantity" min="1" required>
+            
+            <button type="submit" class="button-server-error">Отправить (с ошибкой сервера)</button>
+        </form>
+        <p>Эта форма симулирует ошибку сервера (404 или 500) при отправке через AJAX.</p>
+    </div>
+
+    <div class="form-container">
+        <div class="form-title">
+            <h2>Форма с симуляцией спама</h2>
+            <span class="error-type">Spam Detection</span>
+        </div>
+        <form id="spamForm" class="newsletter-form">
+            <label for="email2">Email:</label>
+            <input type="email" id="email2" name="email" required>
+            
+            <button type="submit" class="button-spam" id="spamButton">Отправить многократно (спам)</button>
+        </form>
+        <p>Нажмите кнопку несколько раз подряд, чтобы симулировать спам-атаку.</p>
+    </div>
+
+    <div class="form-container">
+        <div class="form-title">
+            <h2>Форма с сетевой ошибкой</h2>
+            <span class="error-type">Network Error</span>
+        </div>
+        <form id="networkErrorForm" class="contact-form">
+            <label for="name2">Имя:</label>
+            <input type="text" id="name2" name="name" required>
+            
+            <label for="email3">Email:</label>
+            <input type="email" id="email3" name="email" required>
+            
+            <button type="submit">Отправить (с сетевой ошибкой)</button>
+        </form>
+        <p>Эта форма симулирует ошибку сети при отправке.</p>
+    </div>
+
+    <h2>Лог событий</h2>
+    <div id="logContainer" class="log-container"></div>
+
+    <div class="status-bar">
+        <div id="pendingSubmissions">Ожидающие отправки: 0</div>
+        <div id="submitsLastMinute">Отправок за последнюю минуту: 0</div>
+    </div>
+
+    <script>
+        /**
+         * Функция для мониторинга отправки форм и отправки уведомлений на webhook
+         * @param {Object} options - Настройки мониторинга
+         * @param {string} options.webhookUrl - URL вашего webhook для отправки уведомлений
+         * @param {string[]} options.formSelectors - Массив CSS селекторов форм для мониторинга
+         * @param {number} options.timeout - Таймаут в мс для определения зависания отправки (по умолчанию 10000мс)
+         * @param {Object} options.spamDetection - Настройки обнаружения спама
+         * @param {number} options.spamDetection.minTimeBetweenSubmits - Минимальное время между отправками в мс (по умолчанию 1000мс)
+         * @param {number} options.spamDetection.maxSubmitsPerMinute - Максимальное количество отправок в минуту (по умолчанию 10)
+         */
+        function monitorFormSubmissions(options) {
+          // Настройки по умолчанию
+          const settings = {
+            webhookUrl: options.webhookUrl,
+            formSelectors: options.formSelectors || ['form'],
+            timeout: options.timeout || 10000,
+            spamDetection: {
+              minTimeBetweenSubmits: (options.spamDetection?.minTimeBetweenSubmits) || 1000,
+              maxSubmitsPerMinute: (options.spamDetection?.maxSubmitsPerMinute) || 10
+            }
+          };
+
+          // Хранилище данных о отправках форм
+          const submissionData = {
+            lastSubmitTime: 0,
+            submitsInLastMinute: 0,
+            pendingSubmissions: new Map(),
+            submissionHistory: []
+          };
+
+          // Счетчик для минутного окна отправок
+          setInterval(() => {
+            submissionData.submitsInLastMinute = 0;
+            // Обновляем UI если он есть
+            const submitsLastMinuteElement = document.getElementById('submitsLastMinute');
+            if (submitsLastMinuteElement) {
+              submitsLastMinuteElement.textContent = `Отправок за последнюю минуту: ${submissionData.submitsInLastMinute}`;
+            }
+          }, 60000);
+
+          // Функция для отправки уведомления на webhook
+          async function sendWebhookNotification(eventType, details) {
+            try {
+              // Логируем событие в UI
+              logEvent(`${eventType}: ${JSON.stringify(details)}`, eventType.includes('success') ? 'success' : 'error');
+              
+              const response = await fetch(settings.webhookUrl, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                  eventType,
+                  details,
+                  timestamp: new Date().toISOString(),
+                  url: window.location.href,
+                  userAgent: navigator.userAgent
+                })
+              });
+              
+              if (!response.ok) {
+                console.error(`Ошибка отправки уведомления: ${response.status}`);
+                logEvent(`Ошибка отправки уведомления: ${response.status}`, 'error');
+              } else {
+                logEvent(`Уведомление успешно отправлено на webhook: ${eventType}`, 'success');
+              }
+            } catch (error) {
+              console.error('Ошибка при отправке уведомления на webhook:', error);
+              logEvent(`Ошибка при отправке на webhook: ${error.message}`, 'error');
+            }
+          }
+
+          // Функция логирования в UI
+          function logEvent(message, type = 'info') {
+            const logContainer = document.getElementById('logContainer');
+            if (logContainer) {
+              const logEntry = document.createElement('div');
+              logEntry.className = `log-entry log-${type}`;
+              logEntry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+              logContainer.prepend(logEntry);
+            }
+          }
+
+          // Проверка на спам
+          function isSpam() {
+            const now = Date.now();
+            const timeSinceLastSubmit = now - submissionData.lastSubmitTime;
+            
+            // Проверяем время между отправками
+            if (timeSinceLastSubmit < settings.spamDetection.minTimeBetweenSubmits) {
+              return true;
+            }
+            
+            // Проверяем количество отправок в минуту
+            if (submissionData.submitsInLastMinute >= settings.spamDetection.maxSubmitsPerMinute) {
+              return true;
+            }
+            
+            // Обновляем данные
+            submissionData.lastSubmitTime = now;
+            submissionData.submitsInLastMinute++;
+            
+            // Обновляем UI если он есть
+            const submitsLastMinuteElement = document.getElementById('submitsLastMinute');
+            if (submitsLastMinuteElement) {
+              submitsLastMinuteElement.textContent = `Отправок за последнюю минуту: ${submissionData.submitsInLastMinute}`;
+            }
+            
+            return false;
+          }
+
+          // Функция обновления UI для ожидающих отправок
+          function updatePendingUI() {
+            const pendingElement = document.getElementById('pendingSubmissions');
+            if (pendingElement) {
+              pendingElement.textContent = `Ожидающие отправки: ${submissionData.pendingSubmissions.size}`;
+            }
+          }
+
+          // Функция для отслеживания успешной отправки формы
+          function handleSubmitSuccess(formElement, submissionId) {
+            if (submissionData.pendingSubmissions.has(submissionId)) {
+              // Очищаем таймаут
+              clearTimeout(submissionData.pendingSubmissions.get(submissionId).timeoutId);
+              
+              submissionData.pendingSubmissions.delete(submissionId);
+              updatePendingUI();
+              
+              // Добавляем в историю успешных отправок
+              submissionData.submissionHistory.push({
+                formId: formElement.id || 'unnamed-form',
+                success: true,
+                timestamp: new Date().toISOString()
+              });
+              
+              // Ограничиваем размер истории
+              if (submissionData.submissionHistory.length > 100) {
+                submissionData.submissionHistory.shift();
+              }
+              
+              // Отправляем уведомление об успехе
+              sendWebhookNotification('submission_success', {
+                formId: formElement.id || 'unnamed-form',
+                formAction: formElement.action,
+                formMethod: formElement.method
+              });
+            }
+          }
+
+          // Функция для обработки ошибок отправки
+          function handleSubmitError(formElement, submissionId, errorType, details) {
+            if (submissionData.pendingSubmissions.has(submissionId)) {
+              // Очищаем таймаут, если он есть
+              if (submissionData.pendingSubmissions.get(submissionId).timeoutId) {
+                clearTimeout(submissionData.pendingSubmissions.get(submissionId).timeoutId);
+              }
+              
+              submissionData.pendingSubmissions.delete(submissionId);
+              updatePendingUI();
+              
+              // Добавляем в историю неудачных отправок
+              submissionData.submissionHistory.push({
+                formId: formElement.id || 'unnamed-form',
+                success: false,
+                errorType,
+                timestamp: new Date().toISOString()
+              });
+              
+              // Отправляем уведомление на webhook
+              sendWebhookNotification(errorType, {
+                formId: formElement.id || 'unnamed-form',
+                formAction: formElement.action,
+                formMethod: formElement.method,
+                ...details
+              });
+            }
+          }
+
+          // Добавляем обработчики событий для всех выбранных форм
+          function attachFormMonitors() {
+            settings.formSelectors.forEach(selector => {
+              const forms = document.querySelectorAll(selector);
+              
+              forms.forEach(form => {
+                // Перед отправкой формы
+                form.addEventListener('submit', function(event) {
+                  const submissionId = Date.now().toString();
+                  const formId = form.id || 'unnamed-form';
+                  
+                  logEvent(`Попытка отправки формы: ${formId}`);
+                  
+                  // Симуляция разных типов ошибок на основе id формы
+                  if (form.id === 'timeoutForm') {
+                    // Симулируем таймаут
+                    event.preventDefault();
+                    logEvent(`Форма ${formId}: симулируем таймаут`);
+                    
+                    // Добавляем отправку в ожидающие
+                    submissionData.pendingSubmissions.set(submissionId, {
+                      form,
+                      startTime: Date.now(),
+                      timeoutId: setTimeout(() => {
+                        // Если отправка формы "зависла"
+                        handleSubmitError(form, submissionId, 'submission_timeout', {
+                          message: `Превышено время ожидания отправки формы (${settings.timeout}мс)`
+                        });
+                      }, settings.timeout)
+                    });
+                    updatePendingUI();
+                    return;
+                  }
+                  
+                  if (form.id === 'networkErrorForm') {
+                    // Симулируем сетевую ошибку
+                    event.preventDefault();
+                    logEvent(`Форма ${formId}: симулируем сетевую ошибку`);
+                    
+                    // Добавляем отправку в ожидающие
+                    submissionData.pendingSubmissions.set(submissionId, {
+                      form,
+                      startTime: Date.now()
+                    });
+                    updatePendingUI();
+                    
+                    // Эмулируем сетевую ошибку
+                    setTimeout(() => {
+                      handleSubmitError(form, submissionId, 'network_error', {
+                        message: 'Симуляция: Не удалось установить соединение с сервером'
+                      });
+                    }, 1000);
+                    return;
+                  }
+                  
+                  if (form.id === 'serverErrorForm') {
+                    // Симулируем ошибку сервера через AJAX
+                    event.preventDefault();
+                    logEvent(`Форма ${formId}: симулируем ошибку сервера`);
+                    
+                    // Добавляем отправку в ожидающие
+                    submissionData.pendingSubmissions.set(submissionId, {
+                      form,
+                      startTime: Date.now()
+                    });
+                    updatePendingUI();
+                    
+                    // Эмулируем ответ сервера с ошибкой
+                    setTimeout(() => {
+                      handleSubmitError(form, submissionId, 'server_error', {
+                        status: Math.random() > 0.5 ? 500 : 404,
+                        statusText: Math.random() > 0.5 ? 'Internal Server Error' : 'Not Found'
+                      });
+                    }, 1000);
+                    return;
+                  }
+                  
+                  // Проверка на спам
+                  if (isSpam() && form.id === 'spamForm') {
+                    event.preventDefault();
+                    logEvent(`Форма ${formId}: обнаружен спам`);
+                    handleSubmitError(form, submissionId, 'spam_detected', {
+                      message: 'Обнаружена подозрительная активность отправки форм'
+                    });
+                    return;
+                  }
+                  
+                  // Для успешной формы или формы с валидацией
+                  if (form.id === 'successForm') {
+                    // Симуляция успешной отправки
+                    event.preventDefault();
+                    logEvent(`Форма ${formId}: симуляция успешной отправки`);
+                    
+                    // Добавляем отправку в ожидающие
+                    submissionData.pendingSubmissions.set(submissionId, {
+                      form,
+                      startTime: Date.now()
+                    });
+                    updatePendingUI();
+                    
+                    // Через 1 секунду помечаем как успешно отправленную
+                    setTimeout(() => {
+                      handleSubmitSuccess(form, submissionId);
+                    }, 1000);
+                    return;
+                  }
+                  
+                  // Для формы с проверкой валидации
+                  if (form.id === 'validationForm') {
+                    // Проверяем валидность формы
+                    if (!form.checkValidity()) {
+                      event.preventDefault();
+                      logEvent(`Форма ${formId}: ошибка валидации`);
+                      
+                      // Добавляем отправку в ожидающие
+                      submissionData.pendingSubmissions.set(submissionId, {
+                        form,
+                        startTime: Date.now()
+                      });
+                      updatePendingUI();
+                      
+                      handleSubmitError(form, submissionId, 'validation_failed', {
+                        message: 'Форма не прошла клиентскую валидацию'
+                      });
+                      return;
+                    } else {
+                      // Если валидация прошла успешно
+                      event.preventDefault();
+                      logEvent(`Форма ${formId}: валидация успешна, симуляция отправки`);
+                      
+                      // Добавляем отправку в ожидающие
+                      submissionData.pendingSubmissions.set(submissionId, {
+                        form,
+                        startTime: Date.now()
+                      });
+                      updatePendingUI();
+                      
+                      // Через 1 секунду помечаем как успешно отправленную
+                      setTimeout(() => {
+                        handleSubmitSuccess(form, submissionId);
+                      }, 1000);
+                      return;
+                    }
+                  }
+                });
+              });
+            });
+          }
+
+          // Запускаем мониторинг
+          attachFormMonitors();
+          logEvent("Мониторинг форм инициализирован с настройками: " + JSON.stringify(settings));
+
+          // Публичный API
+          return {
+            // Получить статистику отправок
+            getSubmissionStats: function() {
+              return {
+                pendingCount: submissionData.pendingSubmissions.size,
+                submitsInLastMinute: submissionData.submitsInLastMinute,
+                history: submissionData.submissionHistory
+              };
+            },
+            
+            // Обновить настройки
+            updateSettings: function(newSettings) {
+              Object.assign(settings, newSettings);
+              logEvent("Настройки мониторинга обновлены: " + JSON.stringify(settings));
+            }
+          };
+        }
+
+        // Инициализация мониторинга по нажатию кнопки
+        let formMonitor;
+        document.getElementById('initMonitor').addEventListener('click', function() {
+            const webhookUrl = document.getElementById('webhookUrl').value;
+            if (!webhookUrl || webhookUrl.includes('ВСТАВЬТЕ-ВАШ-УНИКАЛЬНЫЙ-ID')) {
+                alert('Пожалуйста, укажите действительный URL для webhook');
+                return;
+            }
+
+            formMonitor = monitorFormSubmissions({
+                webhookUrl: webhookUrl,
+                formSelectors: ['form.contact-form', 'form.registration-form', 'form.feedback-form', 'form.ajax-form', 'form.newsletter-form'],
+                timeout: 5000, // Для демонстрации используем меньший таймаут
+                spamDetection: {
+                    minTimeBetweenSubmits: 800, // Меньше для тестирования
+                    maxSubmitsPerMinute: 5     // Меньше для тестирования
+                }
+            });
+
+            document.getElementById('monitorStatus').textContent = 'Статус: Активен';
+            document.getElementById('monitorStatus').style.color = 'green';
+            document.getElementById('initMonitor').disabled = true;
+        });
+
+        // Добавляем обработчик для кнопки спама
+        document.getElementById('spamButton').addEventListener('click', function(event) {
+            // Предотвращаем стандартную отправку формы, чтобы самим контролировать процесс
+            event.preventDefault();
+            
+            // Имитируем многократную отправку формы
+            for (let i = 0; i < 3; i++) {
+                setTimeout(() => {
+                    // Триггерим отправку формы спама
+                    document.getElementById('spamForm').dispatchEvent(new Event('submit'));
+                }, i * 200); // С небольшой задержкой
+            }
+        });
+    </script>
+</body>
+</html>
